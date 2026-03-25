@@ -27,4 +27,9 @@ public class AgendaController {
         return agendaService.createEvent(event.getTitle(),event.getDate(),event.getTime(),email);
     }
 
+    @DeleteMapping("/{id}")
+    public String deleteEvent(@PathVariable("id")Long id){
+        agendaService.deleteEvent(id);
+        return "Evento borrado correctamente";
+    }
 }
