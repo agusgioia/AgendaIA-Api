@@ -44,4 +44,8 @@ public class AgendaService {
     public List<Event> getUsersEvent(Long id){
         return eventRepository.findByUserId(id);
     }
+
+    public void deleteEvent(Long id){
+        eventRepository.deleteById(id);
+    }
 }
