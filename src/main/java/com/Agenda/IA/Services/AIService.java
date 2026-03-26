@@ -1,94 +1,87 @@
 package com.Agenda.IA.Services;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import com.Agenda.IA.DTO.IntentResult;
+import org.springframework.web.client.RestClient;
 
 import java.time.LocalDate;
-import java.time.LocalTime;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+import java.util.List;
+import java.util.Map;
 
 @Service
 public class AIService {
 
+    @Value("${anthropic.api.key}")
+    private String apiKey;
 
-    private LocalTime extractTime(String text){
+    private final RestClient restClient = RestClient.create();
 
-        // formato: 10:30
-        Pattern pattern = Pattern.compile("(\\d{1,2}):(\\d{2})");
-        Matcher matcher = pattern.matcher(text);
+    private static final String PROMPT = """
+            Sos un asistente de agenda personal. El usuario habla en español.
+            Analizá el siguiente mensaje y extraé la información relevante.
+            
+            Intenciones posibles:
+            - create_event: el usuario quiere agendar algo
+            - read_today: el usuario quiere saber sus eventos de hoy
+            - read_week: el usuario quiere saber sus eventos de la semana
+            
+            Fecha de hoy: %s
+            Mensaje del usuario: "%s"
+            
+            Respondé ÚNICAMENTE con un JSON con esta estructura, sin texto adicional:
+            {
+              "intent": "create_event",
+              "title": "título del evento",
+              "date": "2025-03-24",
+              "time": "10:30"
+            }
+            
+            Si el intent es read_today o read_week, title/date/time pueden ser null.
+            La fecha debe estar en formato yyyy-MM-dd y la hora en HH:mm.
+            """;
 
-        if(matcher.find()){
-            int hour = Integer.parseInt(matcher.group(1));
-            int minute = Integer.parseInt(matcher.group(2));
+    public IntentResult interpret(String text) {
+        String prompt = PROMPT.formatted(LocalDate.now(), text);
 
-            return LocalTime.of(hour, minute);
-        }
+        Map<String, Object> body = Map.of(
+                "model", "claude-sonnet-4-20250514",
+                "max_tokens", 256,
+                "messages", List.of(
+                        Map.of("role", "user", "content", prompt)
+                )
+        );
 
-        // formato: "a las 10"
-        Pattern pattern2 = Pattern.compile("a las (\\d{1,2})");
-        Matcher matcher2 = pattern2.matcher(text);
+        Map response = restClient.post()
+                .uri("https://api.anthropic.com/v1/messages")
+                .header("x-api-key", apiKey)
+                .header("anthropic-version", "2023-06-01")
+                .header("Content-Type", "application/json")
+                .body(body)
+                .retrieve()
+                .body(Map.class);
 
-        if(matcher2.find()){
-            int hour = Integer.parseInt(matcher2.group(1));
-            return LocalTime.of(hour, 0);
-        }
-
-        return LocalTime.of(9, 0); // fallback
+        String json = extractText(response);
+        return parseResult(json);
     }
 
-    private LocalDate extractDate(String text){
-
-        if(text.contains("hoy")){
-            return LocalDate.now();
-        }
-
-        if(text.contains("mañana")){
-            return LocalDate.now().plusDays(1);
-        }
-
-        // formato: 17/03 o 17-03
-        Pattern pattern = Pattern.compile("(\\d{1,2})[/-](\\d{1,2})");
-        Matcher matcher = pattern.matcher(text);
-
-        if(matcher.find()){
-            int day = Integer.parseInt(matcher.group(1));
-            int month = Integer.parseInt(matcher.group(2));
-
-            return LocalDate.of(LocalDate.now().getYear(), month, day);
-        }
-
-        return LocalDate.now(); // fallback
+    private String extractText(Map response) {
+        List<Map> content = (List<Map>) response.get("content");
+        return (String) content.get(0).get("text");
     }
 
-    public IntentResult interpret(String text){
-
-        IntentResult r = new IntentResult();
-        String lower = text.toLowerCase();
-
-        if(lower.contains("agenda")){
-
-            r.setIntent("create_event");
-            String cleanTitle = text
-                    .replaceAll("(?i)\\bagend[a-záéíóú]*\\b", "")
-                    .replaceAll("\\s+", " ")
-                    .trim();
-
-            r.setTitle(cleanTitle);
-
-            // ---- FECHA ----
-            LocalDate date = extractDate(lower);
-            r.setDate(date);
-
-            // ---- HORA ----
-            LocalTime time = extractTime(lower);
-            r.setTime(time);
-
-        }else{
+    private IntentResult parseResult(String json) {
+        try {
+            ObjectMapper mapper = new ObjectMapper();
+            mapper.registerModule(new JavaTimeModule());
+            return mapper.readValue(json, IntentResult.class);
+        } catch (Exception e) {
+            // fallback si el parseo falla
+            IntentResult r = new IntentResult();
             r.setIntent("read_today");
+            return r;
         }
-
-        return r;
     }
-
 }

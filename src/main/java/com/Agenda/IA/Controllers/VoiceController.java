@@ -23,24 +23,38 @@ public class VoiceController {
     private AgendaService agendaService;
 
     @PostMapping
-    public VoiceResponse voice(@RequestBody VoiceRequest req,@RequestParam String email){
+    public VoiceResponse voice(@RequestBody VoiceRequest req, @RequestParam String email) {
 
         IntentResult intent = aiService.interpret(req.getText());
-        String respuesta="";
-        if(intent.getIntent().equals("create_event")){
-            agendaService.createEvent(
-                    intent.getTitle(),
-                    intent.getDate(),
-                    intent.getTime(),
-                    email
-            );
-            respuesta="evento creado";
-        }
-        if(intent.getIntent().equals("read_today")){
-            List<Event> events = agendaService.getTodayEvents(intent.getDate());
-            respuesta="tenés "+events.size()+" eventos hoy";
+        String respuesta;
 
+        switch (intent.getIntent()) {
+            case "create_event" -> {
+                agendaService.createEvent(
+                        intent.getTitle(),
+                        intent.getDate(),
+                        intent.getTime(),
+                        email
+                );
+                respuesta = "Evento creado: " + intent.getTitle() + " para el " + intent.getDate();
+            }
+            case "read_today" -> {
+                List<Event> events = agendaService.getTodayEvents(email);
+                respuesta = events.isEmpty()
+                        ? "No tenés eventos hoy"
+                        : "Tenés " + events.size() + " evento(s) hoy: " +
+                        events.stream().map(Event::getTitle).reduce((a, b) -> a + ", " + b).orElse("");
+            }
+            case "read_week" -> {
+                List<Event> events = agendaService.getWeekEvents(email);
+                respuesta = events.isEmpty()
+                        ? "No tenés eventos esta semana"
+                        : "Tenés " + events.size() + " evento(s) esta semana: " +
+                        events.stream().map(Event::getTitle).reduce((a, b) -> a + ", " + b).orElse("");
+            }
+            default -> respuesta = "No entendí lo que querías hacer";
         }
+
         return new VoiceResponse(respuesta);
     }
 }

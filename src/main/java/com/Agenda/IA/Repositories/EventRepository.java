@@ -8,5 +8,7 @@ import java.util.List;
 
 public interface EventRepository extends JpaRepository<Event,Long> {
     List<Event> findByDate(LocalDate date);
-    List<Event> findByUser_Id(Long id);
+    List<Event> findByUserId(Long id);
+    List<Event> findByDateBetweenAndUser_Id(LocalDate start,LocalDate end,Long userId);
+    List<Event> findByDateAndUser_Id(LocalDate date,Long userId);
 }

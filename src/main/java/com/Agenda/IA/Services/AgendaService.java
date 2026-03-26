@@ -37,12 +37,19 @@ public class AgendaService {
         return userRepository.findByEmail(email);
     }
 
-    public List<Event> getTodayEvents(LocalDate date){
-        return eventRepository.findByDate(date);
+    public List<Event> getTodayEvents(String email) {
+        User user = userRepository.findByEmail(email);
+        return eventRepository.findByDateAndUser_Id(LocalDate.now(), user.getId());
+    }
+
+    public List<Event> getWeekEvents(String email) {
+        User user = userRepository.findByEmail(email);
+        LocalDate today = LocalDate.now();
+        return eventRepository.findByDateBetweenAndUser_Id(today, today.plusDays(6), user.getId());
     }
 
     public List<Event> getUsersEvent(Long id){
-        return eventRepository.findByUser_Id(id);
+        return eventRepository.findByUserId(id);
     }
 
     public void deleteEvent(Long id){
