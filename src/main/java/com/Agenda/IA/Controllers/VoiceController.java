@@ -4,8 +4,8 @@ import com.Agenda.IA.DTO.IntentResult;
 import com.Agenda.IA.DTO.VoiceRequest;
 import com.Agenda.IA.DTO.VoiceResponse;
 import com.Agenda.IA.Models.Event;
-import com.Agenda.IA.Services.AIService;
 import com.Agenda.IA.Services.AgendaService;
+import com.Agenda.IA.Services.InterpreterService;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -17,17 +17,15 @@ import java.util.List;
 public class VoiceController {
 
     @Autowired
-    private AIService aiService;
+    private InterpreterService interpreterService;
 
     @Autowired
     private AgendaService agendaService;
 
     @PostMapping
     public VoiceResponse voice(@RequestBody VoiceRequest req, @RequestParam String email) {
-
-        IntentResult intent = aiService.interpret(req.getText());
+        IntentResult intent = interpreterService.interpret(req.getText());
         String respuesta;
-
         switch (intent.getIntent()) {
             case "create_event" -> {
                 agendaService.createEvent(
