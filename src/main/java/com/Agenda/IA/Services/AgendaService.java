@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @AllArgsConstructor
@@ -50,6 +51,14 @@ public class AgendaService {
 
     public List<Event> getUsersEvent(Long id){
         return eventRepository.findByUserId(id);
+    }
+
+    public Optional<Event> editEvent(Event edit, Long id) {
+        return eventRepository.findById(id).map(actual -> {
+            edit.setId(id);
+            edit.setUser(actual.getUser()); // conservar el usuario original
+            return eventRepository.save(edit);
+        });
     }
 
     public void deleteEvent(Long id){

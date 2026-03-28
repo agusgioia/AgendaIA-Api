@@ -1,5 +1,6 @@
 package com.Agenda.IA.Controllers;
 
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -25,6 +26,13 @@ public class AgendaController {
     @PostMapping
     public Event saveEvent(@RequestBody Event event,@RequestParam String email){
         return agendaService.createEvent(event.getTitle(),event.getDate(),event.getTime(),email);
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<Event> editEvent(@RequestBody Event event, @PathVariable Long id) {
+        return agendaService.editEvent(event, id)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
     }
 
     @DeleteMapping("/{id}")

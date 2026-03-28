@@ -8,11 +8,6 @@ import com.Agenda.IA.Services.AgendaService;
 import com.Agenda.IA.Services.InterpreterService;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.beans.factory.annotation.Autowired;
-import java.time.LocalDate;
-import java.time.format.TextStyle;
-import java.util.Locale;
-import java.util.Map;
-import java.util.stream.Collectors;
 
 import java.util.List;
 
@@ -43,52 +38,17 @@ public class VoiceController {
             }
             case "read_today" -> {
                 List<Event> events = agendaService.getTodayEvents(email);
-            
-                String dia = LocalDate.now()
-                        .getDayOfWeek()
-                        .getDisplayName(TextStyle.FULL, new Locale("es", "ES"));
-            
                 respuesta = events.isEmpty()
-                        ? "No tenés eventos hoy (" + dia + ")"
-                        : "Hoy es " + dia + " y tenés " + events.size() + " evento(s): " +
-                        events.stream()
-                                .map(e -> {
-                                    String hora = e.getTime() != null
-                                            ? e.getTime().toString().substring(0,5)
-                                            : "sin hora";
-                                    return e.getTitle() + " a las " + hora;
-                                })
-                                .reduce((a, b) -> a + ", " + b)
-                                .orElse("");
+                        ? "No tenés eventos hoy"
+                        : "Tenés " + events.size() + " evento(s) hoy: " +
+                        events.stream().map(Event::getTitle).reduce((a, b) -> a + ", " + b).orElse("");
             }
             case "read_week" -> {
                 List<Event> events = agendaService.getWeekEvents(email);
-            
-                if (events.isEmpty()) {
-                    respuesta = "No tenés eventos esta semana";
-                    break;
-                }
-            
-                Map<LocalDate, List<Event>> grouped = events.stream()
-                        .collect(Collectors.groupingBy(Event::getDate));
-            
-                StringBuilder sb = new StringBuilder("Esta semana tenés: ");
-            
-                grouped.forEach((date, evs) -> {
-                    String dia = date.getDayOfWeek()
-                            .getDisplayName(TextStyle.FULL, new Locale("es", "ES"));
-            
-                    sb.append("El ").append(dia).append(" tenés: ");
-            
-                    String eventos = evs.stream()
-                            .map(e -> e.getTitle())
-                            .reduce((a, b) -> a + ", " + b)
-                            .orElse("");
-            
-                    sb.append(eventos).append(". ");
-                });
-            
-                respuesta = sb.toString();
+                respuesta = events.isEmpty()
+                        ? "No tenés eventos esta semana"
+                        : "Tenés " + events.size() + " evento(s) esta semana: " +
+                        events.stream().map(Event::getTitle).reduce((a, b) -> a + ", " + b).orElse("");
             }
             default -> respuesta = "No entendí lo que querías hacer";
         }
