@@ -14,9 +14,18 @@ public class Event {
     @GeneratedValue
     private Long id;
 
+    @Column
     private String title;
+
+    @Column
     private LocalDate date;
+
+    @Column
     private LocalTime time;
+
+    @Column
+    private Integer reminderMinutes;
+
     @ManyToOne
     @JoinColumn(name = "user_id")
     private User user;

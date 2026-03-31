@@ -25,7 +25,7 @@ public class CorsConfig {
 
         FilterRegistrationBean<CorsFilter> registration = new FilterRegistrationBean<>();
         registration.setFilter(new CorsFilter(source));
-        registration.setOrder(Ordered.HIGHEST_PRECEDENCE); // -2147483648, el más bajo posible
+        registration.setOrder(Ordered.HIGHEST_PRECEDENCE);
         registration.addUrlPatterns("/*");
         return registration;
     }

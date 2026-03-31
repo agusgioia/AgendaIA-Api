@@ -22,7 +22,7 @@ public class AgendaService {
 
     public Event createEvent(String title, LocalDate date, LocalTime time,String email){
 
-        User user = userRepository.findByEmail(email);
+        User user = userRepository.findByEmail(email).orElseThrow(()->new RuntimeException("Usuario no encontrado"));
 
         Event e = new Event();
         e.setTitle(title);
@@ -33,18 +33,13 @@ public class AgendaService {
         return eventRepository.save(e);
     }
 
-
-    public User findByEmail(String email){
-        return userRepository.findByEmail(email);
-    }
-
     public List<Event> getTodayEvents(String email) {
-        User user = userRepository.findByEmail(email);
+        User user = userRepository.findByEmail(email).orElseThrow(()->new RuntimeException("Usuario no encontrado"));
         return eventRepository.findByDateAndUser_Id(LocalDate.now(), user.getId());
     }
 
     public List<Event> getWeekEvents(String email) {
-        User user = userRepository.findByEmail(email);
+        User user = userRepository.findByEmail(email).orElseThrow(()->new RuntimeException("Usuario no encontrado"));
         LocalDate today = LocalDate.now();
         return eventRepository.findByDateBetweenAndUser_Id(today, today.plusDays(6), user.getId());
     }

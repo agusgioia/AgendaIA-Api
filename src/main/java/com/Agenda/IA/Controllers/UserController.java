@@ -3,8 +3,10 @@ package com.Agenda.IA.Controllers;
 import com.Agenda.IA.Models.User;
 import com.Agenda.IA.Repositories.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
 import java.util.Optional;
 
 @RestController
@@ -20,8 +22,17 @@ public class UserController {
     }
 
     @GetMapping
-    public User getUserByEmail(@RequestParam String email){
+    public Optional<User> getUserByEmail(@RequestParam String email){
         return userRepository.findByEmail(email);
+    }
+
+    @PutMapping("/{id}/fcmToken")
+    public ResponseEntity<?> updateFcmToken(@PathVariable Long id, @RequestBody Map<String, String> body) {
+        return userRepository.findById(id).map(user -> {
+            user.setFcmToken(body.get("fcmToken"));
+            userRepository.save(user);
+            return ResponseEntity.ok().build();
+        }).orElse(ResponseEntity.notFound().build());
     }
 
     @PostMapping
