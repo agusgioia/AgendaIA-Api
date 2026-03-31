@@ -26,14 +26,7 @@ public class UserController {
         return userRepository.findByEmail(email);
     }
 
-    @PutMapping("/{id}/fcmToken")
-    public ResponseEntity<?> updateFcmToken(@PathVariable Long id, @RequestBody Map<String, String> body) {
-        return userRepository.findById(id).map(user -> {
-            user.setFcmToken(body.get("fcmToken"));
-            userRepository.save(user);
-            return ResponseEntity.ok().build();
-        }).orElse(ResponseEntity.notFound().build());
-    }
+
 
     @PostMapping
     public User saveUser(@RequestBody User user){
