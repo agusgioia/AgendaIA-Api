@@ -16,7 +16,7 @@ public class CorsConfig {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowCredentials(true);
         config.addAllowedOriginPattern("http://localhost:5173");
-        config.addAllowedOriginPattern("https://agenda-ia-web.vercel.app");
+        config.addAllowedOriginPattern("https://agendaiav1.netlify.app");
         config.addAllowedHeader("*");
         config.addAllowedMethod("*");
 
