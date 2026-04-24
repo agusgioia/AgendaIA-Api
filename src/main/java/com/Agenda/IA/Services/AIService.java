@@ -14,7 +14,7 @@ import java.util.Map;
 @Service
 public class AIService {
 
-    @Value("${anthropic.api.key}")
+    @Value("${google.gemini.api.key}")
     private String apiKey;
 
     private final RestClient restClient = RestClient.create();
@@ -46,18 +46,24 @@ public class AIService {
     public IntentResult interpret(String text) {
         String prompt = PROMPT.formatted(LocalDate.now(), text);
 
+        // Estructura específica de Gemini
         Map<String, Object> body = Map.of(
-                "model", "claude-sonnet-4-20250514",
-                "max_tokens", 256,
-                "messages", List.of(
-                        Map.of("role", "user", "content", prompt)
+                "contents", List.of(
+                        Map.of("parts", List.of(
+                                Map.of("text", prompt)
+                        ))
+                ),
+                // Forzamos la salida a JSON para evitar que devuelva texto explicativo
+                "generationConfig", Map.of(
+                        "response_mime_type", "application/json"
                 )
         );
 
+        // Endpoint de Gemini 1.5 Flash
+        String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + apiKey;
+
         Map response = restClient.post()
-                .uri("https://api.anthropic.com/v1/messages")
-                .header("x-api-key", apiKey)
-                .header("anthropic-version", "2023-06-01")
+                .uri(url)
                 .header("Content-Type", "application/json")
                 .body(body)
                 .retrieve()
@@ -68,8 +74,15 @@ public class AIService {
     }
 
     private String extractText(Map response) {
-        List<Map> content = (List<Map>) response.get("content");
-        return (String) content.get(0).get("text");
+        try {
+            // Navegación en el JSON de Gemini: candidates -> content -> parts -> text
+            List<Map> candidates = (List<Map>) response.get("candidates");
+            Map content = (Map) candidates.get(0).get("content");
+            List<Map> parts = (List<Map>) content.get("parts");
+            return (String) parts.get(0).get("text");
+        } catch (Exception e) {
+            return "{}"; // Fallback mínimo
+        }
     }
 
     private IntentResult parseResult(String json) {
@@ -78,7 +91,6 @@ public class AIService {
             mapper.registerModule(new JavaTimeModule());
             return mapper.readValue(json, IntentResult.class);
         } catch (Exception e) {
-            // fallback si el parseo falla
             IntentResult r = new IntentResult();
             r.setIntent("read_today");
             return r;
