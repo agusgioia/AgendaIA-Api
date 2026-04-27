@@ -1,10 +1,10 @@
 package com.Agenda.IA.Services;
 
+import com.Agenda.IA.DTO.IntentResult;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import com.Agenda.IA.DTO.IntentResult;
 import org.springframework.web.client.RestClient;
 
 import java.time.LocalDate;
@@ -14,7 +14,7 @@ import java.util.Map;
 @Service
 public class AIService {
 
-    @Value("${google.gemini.api.key}")
+    @Value("${groq.api.key}")
     private String apiKey;
 
     private final RestClient restClient = RestClient.create();
@@ -27,6 +27,9 @@ public class AIService {
             - create_event: el usuario quiere agendar algo
             - read_today: el usuario quiere saber sus eventos de hoy
             - read_week: el usuario quiere saber sus eventos de la semana
+            
+            CONTEXTO PREVIO (Información que ya conocemos del evento):
+            %s
             
             Fecha de hoy: %s
             Mensaje del usuario: "%s"
@@ -43,46 +46,59 @@ public class AIService {
             La fecha debe estar en formato yyyy-MM-dd y la hora en HH:mm.
             """;
 
-    public IntentResult interpret(String text) {
-        String prompt = PROMPT.formatted(LocalDate.now(), text);
+    public IntentResult interpret(String text, String email, PendingIntentService pendingService) {
+        // Buscamos si hay algo pendiente para este usuario
+        IntentResult anterior = pendingService.get(email);
+        String contextoString = (anterior != null) ? anterior.toString() : "No hay contexto previo.";
 
-        // Estructura específica de Gemini
+        String prompt = PROMPT.formatted(contextoString, LocalDate.now(), text);
+
         Map<String, Object> body = Map.of(
-                "contents", List.of(
-                        Map.of("parts", List.of(
-                                Map.of("text", prompt)
-                        ))
+                "model", "llama-3.3-70b-versatile",
+                "messages", List.of(
+                        Map.of("role", "user", "content", prompt)
                 ),
-                // Forzamos la salida a JSON para evitar que devuelva texto explicativo
-                "generationConfig", Map.of(
-                        "response_mime_type", "application/json"
-                )
+                "response_format", Map.of("type", "json_object")
         );
 
-        // Endpoint de Gemini 1.5 Flash
-        String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + apiKey;
+        try {
+            Map response = restClient.post()
+                    .uri("https://api.groq.com/openai/v1/chat/completions")
+                    .header("Authorization", "Bearer " + apiKey)
+                    .header("Content-Type", "application/json")
+                    .body(body)
+                    .retrieve()
+                    .body(Map.class);
 
-        Map response = restClient.post()
-                .uri(url)
-                .header("Content-Type", "application/json")
-                .body(body)
-                .retrieve()
-                .body(Map.class);
+            String json = extractText(response);
+            IntentResult actual = parseResult(json);
 
-        String json = extractText(response);
-        return parseResult(json);
+            // Si el evento está incompleto, lo guardamos/actualizamos en el servicio de pendientes
+            if (actual != null && "create_event".equals(actual.getIntent())) {
+                if (actual.getDate() == null || actual.getTime() == null || actual.getTitle() == null) {
+                    pendingService.save(email, actual);
+                } else {
+                    // Si ya está completo, limpiamos el pendiente
+                    pendingService.clear(email);
+                }
+            } else {
+                // Si la intención es leer o cualquier otra cosa, limpiamos contexto
+                pendingService.clear(email);
+            }
+
+            return actual;
+
+        } catch (Exception e) {
+            System.err.println("=== ERROR EN GROQ API ===");
+            e.printStackTrace();
+            return fallbackIntent();
+        }
     }
 
     private String extractText(Map response) {
-        try {
-            // Navegación en el JSON de Gemini: candidates -> content -> parts -> text
-            List<Map> candidates = (List<Map>) response.get("candidates");
-            Map content = (Map) candidates.get(0).get("content");
-            List<Map> parts = (List<Map>) content.get("parts");
-            return (String) parts.get(0).get("text");
-        } catch (Exception e) {
-            return "{}"; // Fallback mínimo
-        }
+        List<Map> choices = (List<Map>) response.get("choices");
+        Map message = (Map) choices.get(0).get("message");
+        return (String) message.get("content");
     }
 
     private IntentResult parseResult(String json) {
@@ -91,9 +107,14 @@ public class AIService {
             mapper.registerModule(new JavaTimeModule());
             return mapper.readValue(json, IntentResult.class);
         } catch (Exception e) {
-            IntentResult r = new IntentResult();
-            r.setIntent("read_today");
-            return r;
+            System.err.println("Error parseando JSON de Groq: " + json);
+            return fallbackIntent();
         }
+    }
+
+    private IntentResult fallbackIntent() {
+        IntentResult r = new IntentResult();
+        r.setIntent("read_today");
+        return r;
     }
 }

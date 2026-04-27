@@ -51,17 +51,12 @@ public class FirebaseAuthFilter extends OncePerRequestFilter {
             }
         }
     }
-
     @Override
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
-                                    FilterChain filterChain)
-            throws ServletException, IOException {
-
-        // Asegurar que Firebase está listo
+                                    FilterChain filterChain) throws ServletException, IOException {
         initFirebase();
 
-        // Manejo de OPTIONS
         if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
             filterChain.doFilter(request, response);
             return;
@@ -85,12 +80,13 @@ public class FirebaseAuthFilter extends OncePerRequestFilter {
             FirebaseToken decoded = FirebaseAuth.getInstance().verifyIdToken(token);
             request.setAttribute("firebaseUid", decoded.getUid());
             request.setAttribute("firebaseEmail", decoded.getEmail());
-            filterChain.doFilter(request, response);
         } catch (Exception e) {
-            System.err.println("ERROR al verificar token: " + e.getMessage());
-            e.printStackTrace();
+            System.err.println("Token inválido: " + e.getMessage());
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.getWriter().write("Token inválido o expirado: " + e.getMessage());
+            response.getWriter().write("Token inválido o expirado");
+            return;
         }
+        filterChain.doFilter(request, response);
     }
+
 }

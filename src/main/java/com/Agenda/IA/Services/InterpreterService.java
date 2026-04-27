@@ -13,15 +13,15 @@ import java.util.regex.Pattern;
 @AllArgsConstructor
 public class InterpreterService {
 
-
     private final AIService aiService;
+    private final PendingIntentService pendingIntentService;
 
-    public IntentResult interpret(String text) {
+    public IntentResult interpret(String text, String email) {
         text = text.toLowerCase();
 
         IntentResult r = new IntentResult();
 
-        // 1. INTENT
+        // 1. INTENT (Lógica manual)
         if (text.contains("agendar") || text.contains("agenda")) {
             r.setIntent("create_event");
         } else if (text.contains("hoy")) {
@@ -29,10 +29,10 @@ public class InterpreterService {
         } else if (text.contains("semana")) {
             r.setIntent("read_week");
         } else {
-            return aiService.interpret(text);
+            // Si no detectamos palabra clave, vamos directo a la IA con el email
+            return aiService.interpret(text, email, pendingIntentService);
         }
 
-        // 2. ENTIDADES
         if (text.contains("mañana")) {
             r.setDate(LocalDate.now().plusDays(1));
         } else if (text.contains("hoy")) {
@@ -50,14 +50,19 @@ public class InterpreterService {
 
         // 3. VALIDACIÓN CLAVE
         if ("create_event".equals(r.getIntent())) {
-            if (r.getDate() == null || r.getTime() == null) {
-                return aiService.interpret(text);
+            if (r.getDate() == null) {
+                return aiService.interpret(text, email, pendingIntentService);
             }
 
             String clean = text
-                    .replaceAll("agendar|agenda|mañana|hoy|a las \\d{1,2}(:\\d{2})?", "")
+                    .replaceAll("(?i)\\b(agendar|agenda|mañana|hoy)\\b", "")
+                    .replaceAll("a las \\d{1,2}(?::\\d{2})?", "")
+                    .replaceAll("\\s+", " ")
                     .trim();
 
+            if (clean.isEmpty()) {
+                return aiService.interpret(text, email, pendingIntentService);
+            }
             r.setTitle(clean);
         }
 
